@@ -24,12 +24,17 @@ def send_message(token: str, chat_id: str, text: str) -> bool:
         return False
 
 
-def format_top_movers(ticker: str, change_rows: list[list]) -> str:
+def format_top_movers(
+    ticker: str,
+    change_rows: list[list],
+    close_price: float | None = None,
+) -> str:
     """
     변동사항 행 목록에서 Call OI / Put OI 변동이 가장 큰 Strike를 찾아
     텔레그램 메시지 문자열로 반환합니다.
 
     change_rows: [[call_oi_diff, strike, put_oi_diff], ...]
+    close_price: 해당 티커의 종가 (없으면 미표시)
     """
     if not change_rows:
         return f"[{ticker}] 비교할 데이터가 없습니다."
@@ -48,6 +53,12 @@ def format_top_movers(ticker: str, change_rows: list[list]) -> str:
     lines = [
         f"📊 <b>[{ticker}] 옵션 OI 변동 알림</b>",
         f"📅 {today}",
+    ]
+
+    if close_price is not None:
+        lines.append(f"💵 종가: <b>${close_price:,.2f}</b>")
+
+    lines += [
         "",
         f"📈 <b>Call OI 최대 변동</b>",
         f"  Strike: <b>{top_call[1]:g}</b>  |  변동: {fmt(top_call[0])}",

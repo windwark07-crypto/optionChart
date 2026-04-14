@@ -4,6 +4,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import yfinance as yf
+
 import config
 from scraper import scrape_option_chain
 from sheets import write_to_sheet
@@ -25,6 +27,18 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+
+def get_close_price(ticker: str) -> float | None:
+    """yfinance로 티커의 최근 종가를 조회합니다."""
+    try:
+        info = yf.Ticker(ticker).fast_info
+        price = info.last_price
+        logger.info(f"[{ticker}] 종가: ${price:,.2f}")
+        return price
+    except Exception as e:
+        logger.warning(f"[{ticker}] 종가 조회 실패: {e}")
+        return None
 
 
 async def collect_ticker(ticker: str, creds_path: str) -> None:
@@ -67,7 +81,8 @@ async def collect_ticker(ticker: str, creds_path: str) -> None:
 
     # ── 텔레그램 알림 ─────────────────────────────────────────────────────────
     if config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID and change_rows:
-        message = format_top_movers(ticker, change_rows)
+        close_price = get_close_price(ticker)
+        message = format_top_movers(ticker, change_rows, close_price)
         send_message(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, message)
 
 
