@@ -71,12 +71,12 @@ def write_to_sheet(
         logger.info(f"오래된 시트 '{data_sheets[0].title}' 삭제됨")
         data_sheets = data_sheets[1:]
 
-    # 비교에 사용할 이전 시트 (삭제 후 남은 가장 최신 시트)
-    if data_sheets:
-        prev_ws = data_sheets[-1]
-
     # ── 3. 오늘 날짜 시트 생성 및 데이터 기록 ───────────────────────────────
     sheet_name = f"{ticker}_{date.today().strftime('%Y-%m-%d')}"
+
+    # 비교에 사용할 이전 시트 (오늘 날짜와 다른 경우에만 유효)
+    if data_sheets and data_sheets[-1].title != sheet_name:
+        prev_ws = data_sheets[-1]
 
     try:
         new_ws = spreadsheet.worksheet(sheet_name)
