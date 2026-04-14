@@ -40,18 +40,18 @@ def write_to_sheet(
     rows: list[dict],
     ticker: str = "QQQ",
     total_tickers: int = 1,
-) -> int:
+) -> tuple[int, list[list]]:
     """
     1. 데이터 시트({TICKER}_YYYY-MM-DD)를 최대 2개 유지
        - 수집 전 기존 시트가 2개면 가장 오래된 시트 삭제
     2. 오늘 날짜 시트에 데이터 기록
     3. 이전 시트가 존재하면 '변동사항' 시트에 Call OI / Put OI 증감 기록
 
-    반환: 기록된 행 수
+    반환: (기록된 행 수, 변동사항 행 목록[[call_oi_diff, strike, put_oi_diff], ...])
     """
     if not rows:
         logger.warning("추가할 데이터가 없습니다.")
-        return 0
+        return 0, []
 
     client = get_client(credentials_path)
     spreadsheet = client.open_by_key(spreadsheet_id)
@@ -102,10 +102,11 @@ def write_to_sheet(
     logger.info(f"{len(new_rows)}행을 '{sheet_name}' 시트에 기록했습니다.")
 
     # ── 4. 이전 시트와 비교 → '변동사항' 시트 기록 ──────────────────────────
+    change_rows: list[list] = []
     if prev_ws:
-        _write_changes(spreadsheet, prev_ws, new_ws, ticker, total_tickers)
+        change_rows = _write_changes(spreadsheet, prev_ws, new_ws, ticker, total_tickers)
 
-    return len(new_rows)
+    return len(new_rows), change_rows
 
 
 def _write_changes(
@@ -114,10 +115,12 @@ def _write_changes(
     new_ws: gspread.Worksheet,
     ticker: str = "QQQ",
     total_tickers: int = 1,
-) -> None:
+) -> list[list]:
     """
     두 시트의 동일 Strike 기준으로 Call OI / Put OI 증감을 계산해
     '변동사항' 시트에 기록합니다. (기존 내용 덮어쓰기)
+
+    반환: [[call_oi_diff, strike, put_oi_diff], ...]
     """
     # 이전/최신 데이터를 Strike → row 딕셔너리로 변환
     prev_data = _sheet_to_dict(prev_ws)
@@ -155,6 +158,7 @@ def _write_changes(
         f"'{change_sheet}' 시트에 {len(change_rows)}개 Strike 증감 기록 "
         f"({prev_ws.title} → {new_ws.title})"
     )
+    return change_rows
 
 
 def _sheet_to_dict(ws: gspread.Worksheet) -> dict[float, dict]:

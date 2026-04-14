@@ -7,6 +7,7 @@ from pathlib import Path
 import config
 from scraper import scrape_option_chain
 from sheets import write_to_sheet
+from telegram import format_top_movers, send_message
 
 # ── 로깅 설정 ────────────────────────────────────────────────────────────────
 LOG_DIR = Path("logs")
@@ -52,7 +53,7 @@ async def collect_ticker(ticker: str, creds_path: str) -> None:
 
     # ── 구글 시트 기록 ────────────────────────────────────────────────────────
     try:
-        written = write_to_sheet(
+        written, change_rows = write_to_sheet(
             credentials_path=creds_path,
             spreadsheet_id=config.SPREADSHEET_ID,
             rows=rows,
@@ -62,6 +63,12 @@ async def collect_ticker(ticker: str, creds_path: str) -> None:
         logger.info(f"[{ticker}] 완료: {written}행 기록")
     except Exception as e:
         logger.error(f"[{ticker}] 구글 시트 기록 실패: {e}", exc_info=True)
+        return
+
+    # ── 텔레그램 알림 ─────────────────────────────────────────────────────────
+    if config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID and change_rows:
+        message = format_top_movers(ticker, change_rows)
+        send_message(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, message)
 
 
 async def run():
@@ -82,6 +89,8 @@ async def run():
         await collect_ticker(ticker, str(creds_path))
 
     logger.info(f"=== 전체 완료 ===")
+
+
 
 
 if __name__ == "__main__":
