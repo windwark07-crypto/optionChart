@@ -38,3 +38,4 @@ jobs:
           GOOGLE_CREDENTIALS_PATH: credentials/service_account.json
           MAX_EXPIRATIONS: "0"
         run: python main.py
+
