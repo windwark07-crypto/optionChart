@@ -45,35 +45,44 @@ def format_top_movers(
         sign = "+" if val > 0 else ""
         return f"{sign}{val:,}"
 
+    def closest_in_top5(rows, key_idx, descending=True):
+        """
+        key_idx 기준 상위 5개를 추린 뒤,
+        close_price와 가장 가까운 Strike를 반환합니다.
+        """
+        filtered = [r for r in rows if r[key_idx] is not None]
+        top5 = sorted(filtered, key=lambda r: r[key_idx], reverse=descending)[:5]
+        if not top5:
+            return None
+        if close_price is not None:
+            return min(top5, key=lambda r: abs(r[1] - close_price))
+        return top5[0]
+
     today = date.today().strftime("%Y-%m-%d")
 
     lines = [
         f"📊 <b>[{ticker}] 옵션 OI 변동 알림</b>",
         f"📅 {today}",
     ]
-
     if close_price is not None:
         lines.append(f"💵 종가: <b>${close_price:,.2f}</b>")
 
-        # 종가와 가장 근접한 Strike 선택
-        atm = min(change_rows, key=lambda r: abs(r[1] - close_price))
-        lines += [
-            "",
-            f"🎯 <b>ATM Strike: {atm[1]:g}</b>",
-            f"  📈 Call OI 변동: {fmt(atm[0])}",
-            f"  📉 Put OI 변동:  {fmt(atm[2])}",
-        ]
-    else:
-        # 종가 없을 때 fallback: 변동 절댓값 최대 Strike
-        top_call = max(change_rows, key=lambda r: abs(r[0]) if r[0] is not None else 0)
-        top_put  = max(change_rows, key=lambda r: abs(r[2]) if r[2] is not None else 0)
-        lines += [
-            "",
-            f"📈 <b>Call OI 최대 변동</b>",
-            f"  Strike: <b>{top_call[1]:g}</b>  |  변동: {fmt(top_call[0])}",
-            "",
-            f"📉 <b>Put OI 최대 변동</b>",
-            f"  Strike: <b>{top_put[1]:g}</b>  |  변동: {fmt(top_put[2])}",
-        ]
+    # Call OI
+    call_top_inc = closest_in_top5(change_rows, key_idx=0, descending=True)
+    call_top_dec = closest_in_top5(change_rows, key_idx=0, descending=False)
+    lines += ["", "📈 <b>Call OI 변동</b>"]
+    if call_top_inc:
+        lines.append(f"  ▲ 최대증가  Strike: <b>{call_top_inc[1]:g}</b>  |  {fmt(call_top_inc[0])}")
+    if call_top_dec:
+        lines.append(f"  ▼ 최대감소  Strike: <b>{call_top_dec[1]:g}</b>  |  {fmt(call_top_dec[0])}")
+
+    # Put OI
+    put_top_inc = closest_in_top5(change_rows, key_idx=2, descending=True)
+    put_top_dec = closest_in_top5(change_rows, key_idx=2, descending=False)
+    lines += ["", "📉 <b>Put OI 변동</b>"]
+    if put_top_inc:
+        lines.append(f"  ▲ 최대증가  Strike: <b>{put_top_inc[1]:g}</b>  |  {fmt(put_top_inc[2])}")
+    if put_top_dec:
+        lines.append(f"  ▼ 최대감소  Strike: <b>{put_top_dec[1]:g}</b>  |  {fmt(put_top_dec[2])}")
 
     return "\n".join(lines)
