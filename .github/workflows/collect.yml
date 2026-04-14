@@ -27,14 +27,16 @@ jobs:
           playwright install chromium --with-deps
 
       - name: Write Google credentials
+        env:
+          GOOGLE_CREDENTIALS_JSON: "${{ secrets.GOOGLE_CREDENTIALS_JSON }}"
         run: |
           mkdir -p credentials
-          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials/service_account.json
+          echo "$GOOGLE_CREDENTIALS_JSON" > credentials/service_account.json
 
       - name: Run collector
         env:
-          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-          TICKERS: ${{ secrets.TICKERS }}
+          SPREADSHEET_ID: "${{ secrets.SPREADSHEET_ID }}"
+          TICKERS: "${{ secrets.TICKERS }}"
           GOOGLE_CREDENTIALS_PATH: credentials/service_account.json
-          MAX_EXPIRATIONS: '0'
+          MAX_EXPIRATIONS: "0"
         run: python main.py
