@@ -39,9 +39,6 @@ def format_top_movers(
     if not change_rows:
         return f"[{ticker}] 비교할 데이터가 없습니다."
 
-    top_call = max(change_rows, key=lambda r: abs(r[0]) if r[0] is not None else 0)
-    top_put  = max(change_rows, key=lambda r: abs(r[2]) if r[2] is not None else 0)
-
     def fmt(val):
         if val is None:
             return "N/A"
@@ -58,12 +55,25 @@ def format_top_movers(
     if close_price is not None:
         lines.append(f"💵 종가: <b>${close_price:,.2f}</b>")
 
-    lines += [
-        "",
-        f"📈 <b>Call OI 최대 변동</b>",
-        f"  Strike: <b>{top_call[1]:g}</b>  |  변동: {fmt(top_call[0])}",
-        "",
-        f"📉 <b>Put OI 최대 변동</b>",
-        f"  Strike: <b>{top_put[1]:g}</b>  |  변동: {fmt(top_put[2])}",
-    ]
+        # 종가와 가장 근접한 Strike 선택
+        atm = min(change_rows, key=lambda r: abs(r[1] - close_price))
+        lines += [
+            "",
+            f"🎯 <b>ATM Strike: {atm[1]:g}</b>",
+            f"  📈 Call OI 변동: {fmt(atm[0])}",
+            f"  📉 Put OI 변동:  {fmt(atm[2])}",
+        ]
+    else:
+        # 종가 없을 때 fallback: 변동 절댓값 최대 Strike
+        top_call = max(change_rows, key=lambda r: abs(r[0]) if r[0] is not None else 0)
+        top_put  = max(change_rows, key=lambda r: abs(r[2]) if r[2] is not None else 0)
+        lines += [
+            "",
+            f"📈 <b>Call OI 최대 변동</b>",
+            f"  Strike: <b>{top_call[1]:g}</b>  |  변동: {fmt(top_call[0])}",
+            "",
+            f"📉 <b>Put OI 최대 변동</b>",
+            f"  Strike: <b>{top_put[1]:g}</b>  |  변동: {fmt(top_put[2])}",
+        ]
+
     return "\n".join(lines)
