@@ -64,17 +64,21 @@ def write_to_sheet(
         key=lambda ws: ws.title,   # 날짜 오름차순
     )
 
-    # ── 2. 시트가 2개 이상이면 가장 오래된 것 삭제 ───────────────────────────
-    prev_ws = None
-    if len(data_sheets) >= 2:
-        spreadsheet.del_worksheet(data_sheets[0])
-        logger.info(f"오래된 시트 '{data_sheets[0].title}' 삭제됨")
-        data_sheets = data_sheets[1:]
-
-    # ── 3. 오늘 날짜 시트 생성 및 데이터 기록 ───────────────────────────────
+    # ── 2. 오늘 날짜 시트 이름 결정 ─────────────────────────────────────────
     sheet_name = f"{ticker}_{date.today().strftime('%Y-%m-%d')}"
 
+    # ── 3. 오늘 시트를 제외한 이전 시트가 2개 초과이면 오래된 것부터 삭제 ────
+    # 목표: 이전 시트 최대 1개 유지 → 오늘 시트 추가 시 총 2개 유지
+    prev_sheets = [ws for ws in data_sheets if ws.title != sheet_name]
+    for ws in prev_sheets[:-1]:  # 가장 최근 1개만 남기고 나머지 삭제
+        spreadsheet.del_worksheet(ws)
+        logger.info(f"오래된 시트 '{ws.title}' 삭제됨")
+    kept_prev = prev_sheets[-1:] if prev_sheets else []
+    today_ws_list = [ws for ws in data_sheets if ws.title == sheet_name]
+    data_sheets = kept_prev + today_ws_list
+
     # 비교에 사용할 이전 시트 (오늘 날짜와 다른 경우에만 유효)
+    prev_ws = None
     if data_sheets and data_sheets[-1].title != sheet_name:
         prev_ws = data_sheets[-1]
 
