@@ -27,61 +27,62 @@ async def scrape_option_chain(url: str) -> list[dict]:
     """
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            )
-        )
-        page = await context.new_page()
-
-        # ── 1. 네트워크 인터셉트로 API 응답 수집 ────────────────────────────
-        captured: list[dict] = []
-
-        async def on_response(response: Response):
-            url_lower = response.url.lower()
-            if response.status != 200:
-                return
-            # JSON 형식이면서 option 관련 엔드포인트 수집
-            if "option" in url_lower or "chain" in url_lower:
-                content_type = response.headers.get("content-type", "")
-                if "json" in content_type:
-                    try:
-                        body = await response.json()
-                        captured.append({"url": response.url, "data": body})
-                        logger.debug(f"API 응답 캡처: {response.url}")
-                    except Exception:
-                        pass
-
-        page.on("response", on_response)
-
-        logger.info(f"페이지 로딩 중: {url}")
-        await page.goto(url, wait_until="domcontentloaded", timeout=60_000)
-
-        # 데이터 렌더링 대기 (테이블 또는 특정 셀 등장 기다림)
         try:
-            await page.wait_for_selector("table", timeout=20_000)
-        except Exception:
-            logger.warning("table 요소를 찾지 못했습니다. 5초 추가 대기.")
-            await asyncio.sleep(5)
+            context = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                )
+            )
+            page = await context.new_page()
 
-        await page.wait_for_load_state("networkidle", timeout=30_000)
+            # ── 1. 네트워크 인터셉트로 API 응답 수집 ────────────────────────────
+            captured: list[dict] = []
 
-        # ── 2. API 응답에서 데이터 파싱 시도 ────────────────────────────────
-        if captured:
-            result = _parse_api_responses(captured)
-            if result:
-                logger.info(f"API 인터셉트 성공: {len(result)}개 행 수집")
-                await browser.close()
-                return result
-            logger.warning("API 응답 파싱 실패 — DOM 파싱으로 전환")
+            async def on_response(response: Response):
+                url_lower = response.url.lower()
+                if response.status != 200:
+                    return
+                # JSON 형식이면서 option 관련 엔드포인트 수집
+                if "option" in url_lower or "chain" in url_lower:
+                    content_type = response.headers.get("content-type", "")
+                    if "json" in content_type:
+                        try:
+                            body = await response.json()
+                            captured.append({"url": response.url, "data": body})
+                            logger.debug(f"API 응답 캡처: {response.url}")
+                        except Exception:
+                            pass
 
-        # ── 3. DOM 파싱 fallback ─────────────────────────────────────────────
-        result = await _parse_dom(page)
-        logger.info(f"DOM 파싱 완료: {len(result)}개 행 수집")
-        await browser.close()
-        return result
+            page.on("response", on_response)
+
+            logger.info(f"페이지 로딩 중: {url}")
+            await page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+
+            # 데이터 렌더링 대기 (테이블 또는 특정 셀 등장 기다림)
+            try:
+                await page.wait_for_selector("table", timeout=20_000)
+            except Exception:
+                logger.warning("table 요소를 찾지 못했습니다. 5초 추가 대기.")
+                await asyncio.sleep(5)
+
+            await page.wait_for_load_state("networkidle", timeout=30_000)
+
+            # ── 2. API 응답에서 데이터 파싱 시도 ────────────────────────────────
+            if captured:
+                result = _parse_api_responses(captured)
+                if result:
+                    logger.info(f"API 인터셉트 성공: {len(result)}개 행 수집")
+                    return result
+                logger.warning("API 응답 파싱 실패 — DOM 파싱으로 전환")
+
+            # ── 3. DOM 파싱 fallback ─────────────────────────────────────────────
+            result = await _parse_dom(page)
+            logger.info(f"DOM 파싱 완료: {len(result)}개 행 수집")
+            return result
+        finally:
+            await browser.close()
 
 
 # ── API 응답 파싱 ────────────────────────────────────────────────────────────

@@ -39,6 +39,16 @@ def format_top_movers(
     if not change_rows:
         return f"[{ticker}] 비교할 데이터가 없습니다."
 
+    # 유효성 검사: 각 행이 3개 요소를 가진 리스트인지 확인
+    valid_rows = [
+        r for r in change_rows
+        if isinstance(r, (list, tuple)) and len(r) >= 3
+    ]
+    if not valid_rows:
+        logger.warning(f"[{ticker}] change_rows 형식이 올바르지 않습니다: {change_rows[:3]}")
+        return f"[{ticker}] 변동사항 데이터 형식 오류."
+    change_rows = valid_rows
+
     def fmt(val):
         if val is None:
             return "N/A"
