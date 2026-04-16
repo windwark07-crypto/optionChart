@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import date
 
 import requests
@@ -10,18 +11,24 @@ API_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
 def send_message(token: str, chat_id: str, text: str) -> bool:
     """텔레그램 메시지를 전송합니다. 성공 여부를 반환합니다."""
-    try:
-        resp = requests.post(
-            API_URL.format(token=token),
-            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        logger.info(f"텔레그램 메시지 전송 완료 (chat_id={chat_id})")
-        return True
-    except Exception as e:
-        logger.error(f"텔레그램 전송 실패: {e}")
-        return False
+    for attempt in range(3):
+        try:
+            resp = requests.post(
+                API_URL.format(token=token),
+                json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            logger.info(f"텔레그램 메시지 전송 완료 (chat_id={chat_id})")
+            return True
+        except Exception as e:
+            if attempt == 2:
+                logger.error(f"텔레그램 전송 실패: {e}")
+                return False
+            wait = 5 * (2 ** attempt)
+            logger.warning(f"텔레그램 전송 실패 (attempt {attempt + 1}): {e}. {wait}초 후 재시도...")
+            time.sleep(wait)
+    return False
 
 
 def format_top_movers(
