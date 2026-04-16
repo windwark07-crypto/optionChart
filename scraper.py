@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 from playwright.async_api import async_playwright, Response
 
@@ -195,8 +194,11 @@ def _find_nested(d: dict, prefix: str, keys: tuple):
 def _to_int(val) -> int | None:
     if val is None:
         return None
+    s = str(val).replace(",", "").strip()
+    if not s or s == "-":
+        return None
     try:
-        return int(str(val).replace(",", "").replace("-", "0") or 0)
+        return int(float(s))
     except (ValueError, TypeError):
         return None
 
