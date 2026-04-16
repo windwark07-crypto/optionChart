@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from datetime import date
 
 import gspread
@@ -29,9 +30,21 @@ def _change_sheet_name(ticker: str, total_tickers: int) -> str:
     return "변동사항"
 
 
+def _retry(fn, retries=3, delay=5, backoff=2):
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as e:
+            if attempt == retries - 1:
+                raise
+            wait = delay * (backoff ** attempt)
+            logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {wait}s...")
+            time.sleep(wait)
+
+
 def get_client(credentials_path: str) -> gspread.Client:
     creds = Credentials.from_service_account_file(credentials_path, scopes=SCOPES)
-    return gspread.authorize(creds)
+    return gspread.Client(auth=creds)
 
 
 def write_to_sheet(
@@ -73,12 +86,9 @@ def write_to_sheet(
     for ws in prev_sheets[:-1]:  # 가장 최근 1개만 남기고 나머지 삭제
         spreadsheet.del_worksheet(ws)
         logger.info(f"오래된 시트 '{ws.title}' 삭제됨")
-    kept_prev = prev_sheets[-1:] if prev_sheets else []
-    today_ws_list = [ws for ws in data_sheets if ws.title == sheet_name]
-    data_sheets = kept_prev + today_ws_list
 
     # 비교에 사용할 이전 시트 (재실행 시에도 이전 날짜 시트가 있으면 비교)
-    prev_ws = kept_prev[0] if kept_prev else None
+    prev_ws = prev_sheets[-1] if prev_sheets else None
 
     try:
         new_ws = spreadsheet.worksheet(sheet_name)
@@ -100,7 +110,7 @@ def write_to_sheet(
         ]
         for r in rows
     ]
-    new_ws.append_rows(new_rows, value_input_option="RAW")
+    _retry(lambda: new_ws.append_rows(new_rows, value_input_option="RAW"))
     logger.info(f"{len(new_rows)}행을 '{sheet_name}' 시트에 기록했습니다.")
 
     # ── 4. 이전 시트와 비교 → '변동사항' 시트 기록 ──────────────────────────
@@ -154,7 +164,7 @@ def _write_changes(
     cws.append_row(CHANGE_HEADERS, value_input_option="RAW")
 
     if change_rows:
-        cws.append_rows(change_rows, value_input_option="RAW")
+        _retry(lambda: cws.append_rows(change_rows, value_input_option="RAW"))
 
     logger.info(
         f"'{change_sheet}' 시트에 {len(change_rows)}개 Strike 증감 기록 "
