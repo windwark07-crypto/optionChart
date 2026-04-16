@@ -133,29 +133,30 @@ def _parse_row_list(rows: list[dict]) -> list[dict]:
     """행 목록에서 strike/volume/OI 컬럼을 찾아 표준 형식으로 변환합니다."""
     result = []
     for row in rows:
-        strike = _find_key(row, ("strike", "strikePrice", "strike_price", "Strike"))
+        d_lower = {k.lower(): v for k, v in row.items()}
+        strike = _find_key(row, ("strike", "strikePrice", "strike_price", "Strike"), d_lower)
         if strike is None:
             continue
 
-        expiration = _find_key(row, ("expiration", "expiry", "expirationDate", "exp", "date"))
+        expiration = _find_key(row, ("expiration", "expiry", "expirationDate", "exp", "date"), d_lower)
 
         # Calls
-        call_vol = _find_nested(row, "call", ("volume", "vol", "Volume"))
-        call_oi  = _find_nested(row, "call", ("openInterest", "open_interest", "oi", "OI"))
+        call_vol = _find_nested(row, "call", ("volume", "vol", "Volume"), d_lower)
+        call_oi  = _find_nested(row, "call", ("openInterest", "open_interest", "oi", "OI"), d_lower)
 
         # Puts
-        put_vol  = _find_nested(row, "put",  ("volume", "vol", "Volume"))
-        put_oi   = _find_nested(row, "put",  ("openInterest", "open_interest", "oi", "OI"))
+        put_vol  = _find_nested(row, "put",  ("volume", "vol", "Volume"), d_lower)
+        put_oi   = _find_nested(row, "put",  ("openInterest", "open_interest", "oi", "OI"), d_lower)
 
         # flat 구조 fallback
         if call_vol is None:
-            call_vol = _find_key(row, ("callVolume", "call_volume", "cVolume", "c_volume"))
+            call_vol = _find_key(row, ("callVolume", "call_volume", "cVolume", "c_volume"), d_lower)
         if call_oi is None:
-            call_oi  = _find_key(row, ("callOI", "call_oi", "callOpenInterest"))
+            call_oi  = _find_key(row, ("callOI", "call_oi", "callOpenInterest"), d_lower)
         if put_vol is None:
-            put_vol  = _find_key(row, ("putVolume", "put_volume", "pVolume", "p_volume"))
+            put_vol  = _find_key(row, ("putVolume", "put_volume", "pVolume", "p_volume"), d_lower)
         if put_oi is None:
-            put_oi   = _find_key(row, ("putOI", "put_oi", "putOpenInterest"))
+            put_oi   = _find_key(row, ("putOI", "put_oi", "putOpenInterest"), d_lower)
 
         result.append({
             "expiration": str(expiration) if expiration is not None else "",
@@ -168,21 +169,23 @@ def _parse_row_list(rows: list[dict]) -> list[dict]:
     return result
 
 
-def _find_key(d: dict, keys: tuple):
+def _find_key(d: dict, keys: tuple, d_lower: dict | None = None):
     for k in keys:
         if k in d:
             return d[k]
     # 대소문자 무시 검색
-    d_lower = {k.lower(): v for k, v in d.items()}
+    if d_lower is None:
+        d_lower = {k.lower(): v for k, v in d.items()}
     for k in keys:
         if k.lower() in d_lower:
             return d_lower[k.lower()]
     return None
 
 
-def _find_nested(d: dict, prefix: str, keys: tuple):
+def _find_nested(d: dict, prefix: str, keys: tuple, d_lower: dict | None = None):
     """call.volume, put.oi 등 중첩 키 탐색."""
-    d_lower = {k.lower(): v for k, v in d.items()}
+    if d_lower is None:
+        d_lower = {k.lower(): v for k, v in d.items()}
     for k, v in d_lower.items():
         if prefix in k and isinstance(v, dict):
             result = _find_key(v, keys)
