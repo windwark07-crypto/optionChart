@@ -77,10 +77,8 @@ def write_to_sheet(
     today_ws_list = [ws for ws in data_sheets if ws.title == sheet_name]
     data_sheets = kept_prev + today_ws_list
 
-    # 비교에 사용할 이전 시트 (오늘 날짜와 다른 경우에만 유효)
-    prev_ws = None
-    if data_sheets and data_sheets[-1].title != sheet_name:
-        prev_ws = data_sheets[-1]
+    # 비교에 사용할 이전 시트 (재실행 시에도 이전 날짜 시트가 있으면 비교)
+    prev_ws = kept_prev[0] if kept_prev else None
 
     try:
         new_ws = spreadsheet.worksheet(sheet_name)
