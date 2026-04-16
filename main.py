@@ -100,8 +100,8 @@ async def run():
         logger.error(f"서비스 계정 파일을 찾을 수 없습니다: {creds_path}")
         sys.exit(1)
 
-    for ticker in config.TICKERS:
-        await collect_ticker(ticker, str(creds_path))
+    tasks = [collect_ticker(ticker, str(creds_path)) for ticker in config.TICKERS]
+    await asyncio.gather(*tasks)
 
     logger.info(f"=== 전체 완료 ===")
 
