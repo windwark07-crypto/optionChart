@@ -192,9 +192,11 @@ def _sheet_to_dict(ws: gspread.Worksheet) -> dict[float, dict]:
         except (ValueError, KeyError, IndexError):
             continue
 
+        call_oi_idx = col.get("Call Open Interest")
+        put_oi_idx  = col.get("Put Open Interest")
         result[strike] = {
-            "call_oi": row[col.get("Call Open Interest", -1)] if col.get("Call Open Interest") is not None else "",
-            "put_oi":  row[col.get("Put Open Interest",  -1)] if col.get("Put Open Interest")  is not None else "",
+            "call_oi": row[call_oi_idx] if call_oi_idx is not None and call_oi_idx < len(row) else "",
+            "put_oi":  row[put_oi_idx]  if put_oi_idx  is not None and put_oi_idx  < len(row) else "",
         }
     return result
 
