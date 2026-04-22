@@ -2,7 +2,8 @@ name: Option Chain Collect
 
 on:
   schedule:
-    - cron: '0 23 * * 1-5'
+    # 화~토 UTC 21:00 (KST 06:00) — 미국 장 마감 후 수집
+    - cron: '0 21 * * 2-6'
   workflow_dispatch:
 
 jobs:
